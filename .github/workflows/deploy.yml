@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      cleanup_resources:
+        description: 'Cleanup AWS resources?'
+        required: false
+        default: false
+        type: boolean
 
 env:
   AWS_REGION: us-west-2
@@ -131,9 +136,28 @@ jobs:
           terraform plan -out=tfplan
 
       - name: 🏗️ Terraform Apply
+        id: terraform-apply
         run: |
           cd aws/terraform
           terraform apply -auto-approve tfplan
+        
+      - name: 👥 Rollback on Failure
+        if: failure() && steps.terraform-apply.outcome == 'failure'
+        run: |
+          echo "❌ Terraform apply falhou. Iniciando rollback..."
+          cd aws/terraform
+          
+          # Tentar destroy para limpar recursos criados parcialmente
+          echo "🗑️ Executando terraform destroy..."
+          terraform destroy -auto-approve || true
+          
+          # Verificar se ainda existem recursos
+          echo "🔍 Verificando recursos remanescentes..."
+          aws resourcegroupstaggingapi get-resources \
+            --resource-type-filters "AWS::ECS::*" "AWS::EC2::*" "AWS::ElasticLoadBalancingV2::*" \
+            --tag-filters "Key=Project,Values=busca-cep" || true
+          
+          echo "❗ Rollback concluído. Verifique o console AWS para recursos remanescentes."
 
       - name: 📊 Terraform Output
         id: tf-output
@@ -335,3 +359,82 @@ jobs:
           # Implementation for rollback logic
           aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_BACKEND_SERVICE --force-new-deployment
           aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_FRONTEND_SERVICE --force-new-deployment
+
+  # Job de limpeza completa (manual)
+  cleanup:
+    name: 🧹 Cleanup AWS Resources
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.cleanup_resources
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🚀 Terraform Init
+        run: |
+          cd aws/terraform
+          terraform init
+
+      - name: 🗑️ Terraform Destroy
+        run: |
+          cd aws/terraform
+          echo "⚠️  ATENÇÃO: Destruindo TODOS os recursos da infraestrutura!"
+          echo "⏳ Aguarde, isso pode levar alguns minutos..."
+          
+          terraform destroy -auto-approve
+          
+          echo "✅ Terraform destroy concluído!"
+
+      - name: 🔍 Verify Cleanup
+        run: |
+          echo "🔍 Verificando recursos remanescentes..."
+          
+          # Verificar ECS
+          CLUSTERS=$(aws ecs list-clusters --query 'clusterArns[?contains(@, `busca-cep`)]' --output text)
+          if [ -n "$CLUSTERS" ]; then
+            echo "⚠️  Clusters ECS encontrados: $CLUSTERS"
+          else
+            echo "✅ Nenhum cluster ECS encontrado"
+          fi
+          
+          # Verificar Load Balancers
+          ALBS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName, `busca-cep`)].LoadBalancerArn' --output text)
+          if [ -n "$ALBS" ]; then
+            echo "⚠️  Load Balancers encontrados: $ALBS"
+          else
+            echo "✅ Nenhum Load Balancer encontrado"
+          fi
+          
+          # Verificar VPCs
+          VPCS=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=busca-cep" --query 'Vpcs[].VpcId' --output text)
+          if [ -n "$VPCS" ]; then
+            echo "⚠️  VPCs encontradas: $VPCS"
+          else
+            echo "✅ Nenhuma VPC encontrada"
+          fi
+          
+          echo "🎉 Verificação de limpeza concluída!"
+
+      - name: 📊 Cleanup Summary
+        run: |
+          echo "📋 Resumo da Limpeza:"
+          echo "==================="
+          echo "✅ Infraestrutura Terraform destruída"
+          echo "✅ Recursos AWS verificados"
+          echo "🗑️  Estado salvo no S3: ${{ secrets.TERRAFORM_S3_BUCKET }}"
+          echo ""
+          echo "⚠️  IMPORTANTE:"
+          echo "- Verifique o console AWS manualmente para recursos órfãos"
+          echo "- O bucket S3 de state não foi removido (contém histórico)"
+          echo "- Images no ECR podem estar ainda presentes"

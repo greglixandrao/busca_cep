@@ -1,6 +1,15 @@
 # Provider AWS
 terraform {
   required_version = ">= 1.0"
+  
+  # Backend S3 para armazenamento remoto do state
+  backend "s3" {
+    bucket  = "busca-cep-terraform-state-1757278434"
+    key     = "infrastructure/terraform.tfstate"
+    region  = "us-west-2"
+    encrypt = true
+  }
+  
   required_providers {
     aws = {
       source  = "hashicorp/aws"
