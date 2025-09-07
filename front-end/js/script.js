@@ -5,8 +5,10 @@
 
 class BuscaCEP {
     constructor() {
-        // URL da API (pode ser alterada conforme necessário)
-        this.apiUrl = 'http://localhost:8001/api/v1'; // Altere para sua URL da API
+        // URL da API - usa path relativo que é roteado pelo Load Balancer
+        // Em desenvolvimento local: funciona com proxy ou CORS
+        // Em produção (ECS): ALB roteia /api/* para o backend
+        this.apiUrl = '/api/v1';
         
         // Elementos DOM
         this.form = document.getElementById('cepForm');
