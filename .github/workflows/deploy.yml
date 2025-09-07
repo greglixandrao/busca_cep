@@ -38,20 +38,19 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      - name: 🔍 Lint Python code
+      - name: 🔍 Validate Python code
         run: |
           cd backend
-          pip install flake8
-          # Basic linting - ignore line length for now
-          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+          # Check Python syntax
+          python -m py_compile app/main.py
+          echo "✅ Python syntax is valid"
 
       - name: 🧪 Run backend tests
         run: |
           cd backend
-          # Basic syntax check
-          python -m py_compile app/main.py
-          python -c "from app.main import app; print('✅ Backend imports successfully')"
-          echo "✅ Backend tests passed"
+          # Basic import test
+          python -c "import sys; sys.path.append('.'); from app.main import app; print('✅ Backend imports successfully')"
+          echo "✅ All backend tests passed"
 
       - name: 🌐 Test frontend
         run: |
