@@ -209,37 +209,93 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: 🔄 Update backend task definition
-        id: backend-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: aws/ecs/backend-task-definition.json
-          container-name: busca-cep-backend
-          image: ${{ needs.build-and-push.outputs.backend-image }}
+      - name: 🔄 Update backend service with new image
+        run: |
+          # Get current task definition
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_BACKEND_SERVICE \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          
+          # Create new revision with updated image
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_ARN \
+            --query 'taskDefinition' > backend-task-def.json
+          
+          # Update the image in the task definition
+          BACKEND_IMAGE="${{ needs.build-and-push.outputs.backend-image }}"
+          jq --arg IMAGE "$BACKEND_IMAGE" \
+            '(.containerDefinitions[] | select(.name=="busca-cep-backend") | .image) = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+            backend-task-def.json > backend-task-def-new.json
+          
+          # Register new task definition
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://backend-task-def-new.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          echo "NEW_BACKEND_TASK_DEF=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: 🔄 Update frontend task definition
-        id: frontend-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: aws/ecs/frontend-task-definition.json
-          container-name: busca-cep-frontend
-          image: ${{ needs.build-and-push.outputs.frontend-image }}
+      - name: 🔄 Update frontend service with new image
+        run: |
+          # Get current task definition
+          TASK_DEF_ARN=$(aws ecs describe-services \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_FRONTEND_SERVICE \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          
+          # Create new revision with updated image
+          aws ecs describe-task-definition \
+            --task-definition $TASK_DEF_ARN \
+            --query 'taskDefinition' > frontend-task-def.json
+          
+          # Update the image in the task definition
+          FRONTEND_IMAGE="${{ needs.build-and-push.outputs.frontend-image }}"
+          jq --arg IMAGE "$FRONTEND_IMAGE" \
+            '(.containerDefinitions[] | select(.name=="busca-cep-frontend") | .image) = $IMAGE | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+            frontend-task-def.json > frontend-task-def-new.json
+          
+          # Register new task definition
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://frontend-task-def-new.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          
+          echo "NEW_FRONTEND_TASK_DEF=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
       - name: 🚀 Deploy backend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.backend-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_BACKEND_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_BACKEND_SERVICE \
+            --task-definition $NEW_BACKEND_TASK_DEF
+          
+          echo "✅ Backend service updated with new task definition"
 
       - name: 🚀 Deploy frontend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.frontend-task-def.outputs.task-definition }}
-          service: ${{ env.ECS_FRONTEND_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_FRONTEND_SERVICE \
+            --task-definition $NEW_FRONTEND_TASK_DEF
+          
+          echo "✅ Frontend service updated with new task definition"
+
+      - name: ⏳ Wait for service stability
+        run: |
+          echo "⏳ Waiting for backend service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_BACKEND_SERVICE
+          
+          echo "⏳ Waiting for frontend service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services $ECS_FRONTEND_SERVICE
+          
+          echo "✅ All services are stable!"
 
       - name: 📊 Get Load Balancer URL
         run: |
