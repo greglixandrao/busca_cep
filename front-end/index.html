@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca CEP - Encontre seu endereço</title>
+    <meta name="description" content="Aplicação para buscar endereços brasileiros através do CEP de forma rápida e simples">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <h1>Busca CEP</h1>
+                </div>
+                <p class="subtitle">Encontre endereços brasileiros de forma rápida e simples</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Search Section -->
+            <section class="search-section">
+                <div class="search-card">
+                    <div class="search-header">
+                        <i class="fas fa-search"></i>
+                        <h2>Consultar CEP</h2>
+                    </div>
+
+                    <form class="search-form" id="cepForm">
+                        <div class="input-group">
+                            <label for="cepInput">Digite o CEP:</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-map-pin input-icon"></i>
+                                <input
+                                    type="text"
+                                    id="cepInput"
+                                    placeholder="00000-000"
+                                    maxlength="9"
+                                    autocomplete="postal-code"
+                                >
+                                <div class="input-border"></div>
+                            </div>
+                            <span class="error-message" id="errorMessage"></span>
+                        </div>
+
+                        <button type="submit" class="search-btn" id="searchBtn">
+                            <span class="btn-text">
+                                <i class="fas fa-search"></i>
+                                Buscar Endereço
+                            </span>
+                            <div class="loading-spinner" id="loadingSpinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Buscando...
+                            </div>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection">
+                <div class="results-card">
+                    <div class="results-header">
+                        <i class="fas fa-map-location-dot"></i>
+                        <h3>Endereço Encontrado</h3>
+                    </div>
+
+                    <div class="address-info" id="addressInfo">
+                        <div class="address-field">
+                            <label>CEP:</label>
+                            <span id="resultCep">-</span>
+                        </div>
+
+                        <div class="address-field">
+                            <label>Logradouro:</label>
+                            <span id="resultLogradouro">-</span>
+                        </div>
+
+                        <div class="address-field">
+                            <label>Complemento:</label>
+                            <span id="resultComplemento">-</span>
+                        </div>
+
+                        <div class="address-field">
+                            <label>Bairro:</label>
+                            <span id="resultBairro">-</span>
+                        </div>
+
+                        <div class="address-field">
+                            <label>Cidade:</label>
+                            <span id="resultCidade">-</span>
+                        </div>
+
+                        <div class="address-field">
+                            <label>Estado:</label>
+                            <span id="resultEstado">-</span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="copy-btn" id="copyBtn">
+                            <i class="fas fa-copy"></i>
+                            Copiar Endereço
+                        </button>
+                        <button class="clear-btn" id="clearBtn">
+                            <i class="fas fa-eraser"></i>
+                            Nova Busca
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Info Section -->
+            <section class="info-section">
+                <div class="info-cards">
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <h4>Rápido</h4>
+                        <p>Consultas instantâneas usando a API do ViaCEP</p>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h4>Confiável</h4>
+                        <p>Dados sempre atualizados e precisos</p>
+                    </div>
+
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h4>Responsivo</h4>
+                        <p>Funciona perfeitamente em todos os dispositivos</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Busca CEP. Desenvolvido com ❤️ por Greg Lixandrão</p>
+            <p class="api-info">Powered by ViaCEP API</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
